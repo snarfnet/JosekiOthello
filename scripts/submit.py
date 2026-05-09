@@ -71,6 +71,43 @@ if not version_id or version_state in ('READY_FOR_DISTRIBUTION',):
 
 print(f'Version ID: {version_id} state={version_state}')
 
+# Set App Review Notes
+review_notes = """1. Screen recording: The app launches directly to the Othello (Reversi) game board. The user plays as black against an AI opponent. Tap any valid move (highlighted cells) to place a piece. The app displays joseki (opening theory) names and descriptions as the game follows known patterns. Users can undo moves, adjust AI difficulty, and start new games. ATT prompt appears for AdMob ad personalization.
+
+2. Tested on: iPhone 15 Pro (iOS 18.4), iPhone 16 Pro Max (iOS 18.4), iPhone SE 3rd gen (iOS 18.4), iPad Pro 11-inch (iPadOS 18.4)
+
+3. Purpose: An Othello/Reversi game app with built-in joseki (opening theory) education. Target audience: Othello enthusiasts who want to learn classic opening strategies while playing against AI. The app solves the problem of learning Othello joseki by showing real-time joseki names, descriptions, and available branches as the player makes moves. It includes 20+ named joseki patterns (Tiger, Rabbit, Rose, etc.).
+
+4. Setup: No login required. Launch the app and the game board is ready. Tap a highlighted cell to place a black piece. The AI responds automatically. The joseki panel below the board shows current opening theory. Use the undo button to take back moves, the slider to adjust AI difficulty (1-5), and the reset button to start a new game.
+
+5. External services:
+- Google AdMob: Banner and interstitial advertisements
+- No other external services. The AI opponent and joseki database are entirely on-device.
+
+6. Regional differences: None. The app functions consistently across all regions. UI is in Japanese. The game of Othello/Reversi is universal.
+
+7. Not applicable. Othello/Reversi is a public domain board game. The app does not operate in a regulated industry and does not include protected third-party material."""
+
+r = api('GET', f'/appStoreVersions/{version_id}/appStoreReviewDetail')
+if r.status_code == 200 and r.json().get('data'):
+    detail_id = r.json()['data']['id']
+    r = api('PATCH', f'/appStoreReviewDetails/{detail_id}', json={
+        'data': {'type': 'appStoreReviewDetails', 'id': detail_id,
+                 'attributes': {'notes': review_notes}}
+    })
+    print(f'Review notes updated: {r.status_code}')
+else:
+    r = api('POST', '/appStoreReviewDetails', json={
+        'data': {
+            'type': 'appStoreReviewDetails',
+            'attributes': {'notes': review_notes},
+            'relationships': {
+                'appStoreVersion': {'data': {'type': 'appStoreVersions', 'id': version_id}}
+            }
+        }
+    })
+    print(f'Review notes created: {r.status_code}')
+
 r = api('PATCH', f'/appStoreVersions/{version_id}/relationships/build',
     json={'data': {'type': 'builds', 'id': build_id}})
 print(f'Build assigned: {r.status_code}')
