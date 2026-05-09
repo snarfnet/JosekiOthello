@@ -2,7 +2,7 @@ import jwt, time, requests, sys
 
 KEY_ID = 'WDXGY9WX55'
 ISSUER = '2be0734f-943a-4d61-9dc9-5d9045c46fec'
-APP_ID = 'PLACEHOLDER'
+APP_ID = '6767871447'
 BUILD_NUMBER = sys.argv[1]
 
 p8 = open('/tmp/asc_key.p8').read()
