@@ -1,7 +1,7 @@
 import GoogleMobileAds
 
-class InterstitialAdManager: NSObject, ObservableObject, FullScreenContentDelegate {
-    private var interstitial: InterstitialAd?
+class InterstitialAdManager: NSObject, ObservableObject, GADFullScreenContentDelegate {
+    private var interstitial: GADInterstitialAd?
 
     override init() {
         super.init()
@@ -9,7 +9,7 @@ class InterstitialAdManager: NSObject, ObservableObject, FullScreenContentDelega
     }
 
     func loadAd() {
-        InterstitialAd.load(with: "ca-app-pub-9404799280370656/6885458222", request: GADRequest()) { [weak self] ad, error in
+        GADInterstitialAd.load(withAdUnitID: "ca-app-pub-9404799280370656/6885458222", request: GADRequest()) { [weak self] ad, error in
             if let error = error {
                 print("Interstitial load error: \(error.localizedDescription)")
                 return
@@ -23,11 +23,11 @@ class InterstitialAdManager: NSObject, ObservableObject, FullScreenContentDelega
         guard let interstitial = interstitial else { return }
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let root = windowScene.windows.first?.rootViewController {
-            interstitial.present(from: root)
+            interstitial.present(fromRootViewController: root)
         }
     }
 
-    func adDidDismissFullScreenContent(_ ad: FullScreenPresentingAd) {
+    func adDidDismissFullScreenContent(_ ad: GADFullScreenPresentingAd) {
         loadAd()
     }
 }
