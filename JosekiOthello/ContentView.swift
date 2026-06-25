@@ -15,8 +15,6 @@ extension Color {
 
 struct ContentView: View {
     @StateObject private var game = OthelloGame()
-    @State private var gameCount = 0
-    @StateObject private var interstitial = InterstitialAdManager()
 
     var body: some View {
         ZStack {
@@ -28,7 +26,6 @@ struct ContentView: View {
                 josekiInfoBar
                 josekiPanel
                 controlBar
-                BannerAdView().frame(height: 50)
             }
         }
         .preferredColorScheme(.dark)
@@ -254,10 +251,6 @@ struct ContentView: View {
             Spacer()
 
             Button {
-                gameCount += 1
-                if gameCount % 3 == 0 {
-                    interstitial.showAd()
-                }
                 game.reset()
             } label: {
                 Label("新しい対局", systemImage: "arrow.counterclockwise")

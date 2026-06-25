@@ -5,15 +5,11 @@ options:
     iOS: "16.0"
 settings:
   base:
-    MARKETING_VERSION: "1.0"
-    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: "1.1"
+    CURRENT_PROJECT_VERSION: 2
     SWIFT_VERSION: "5.9"
     DEVELOPMENT_TEAM: 83VGKGSQUH
     CODE_SIGN_STYLE: Automatic
-packages:
-  GoogleMobileAds:
-    url: https://github.com/googleads/swift-package-manager-google-mobile-ads
-    from: "11.13.0"
 targets:
   JosekiOthello:
     type: application
@@ -24,5 +20,3 @@ targets:
         INFOPLIST_FILE: JosekiOthello/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.tokyonasu.josekiothello
         TARGETED_DEVICE_FAMILY: "1,2"
-    dependencies:
-      - package: GoogleMobileAds
