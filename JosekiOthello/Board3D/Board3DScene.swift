@@ -117,16 +117,16 @@ final class Board3DScene {
         let board = SCNNode(); scene.rootNode.addChildNode(board)
         // 胡桃：木目は 12cm で一巡。SCNBox は面ごとに画像の向きが違うので、6 面それぞれで木目を長手方向に通す
         func wood(_ img: String, _ u: Float, _ v: Float) -> SCNMaterial {
-            S.pbr(img, rough: 0.42, normal: "wood_normal.jpg", normalScale: 0.35, tiling: u / 0.12, tileY: v / 0.12, coat: 0.35, coatRough: 0.2)
+            S.pbr(img, rough: 0.42, normal: "wood_normal.jpg", normalScale: 0.35, tiling: u / 0.12, tileY: v / 0.12, coat: 0.2, coatRough: 0.3)
         }
-        // x 方向に長い箱（w×h×l）。側面は横木目、上下面は縦木目の画像を縦横入れ替えて貼る
+        // x 方向に長い箱（w×h×l）。上面の u は x、v は z に沿うので、x に木目が通る横木目を (w, l) で貼る
         func woodX(_ w: Float, _ h: Float, _ l: Float) -> [SCNMaterial] {
-            let side = wood("walnut_h.jpg", w, h), end = wood("walnut.jpg", l, h), top = wood("walnut.jpg", l, w)
+            let side = wood("walnut_h.jpg", w, h), end = wood("walnut.jpg", l, h), top = wood("walnut_h.jpg", w, l)
             return [side, end, side, end, top, top]   // front, right, back, left, top, bottom
         }
-        // z 方向に長い箱
+        // z 方向に長い箱。上面は z に木目が通る縦木目を (w, l) で貼る
         func woodZ(_ w: Float, _ h: Float, _ l: Float) -> [SCNMaterial] {
-            let side = wood("walnut_h.jpg", l, h), end = wood("walnut.jpg", w, h), top = wood("walnut_h.jpg", l, w)
+            let side = wood("walnut_h.jpg", l, h), end = wood("walnut.jpg", w, h), top = wood("walnut.jpg", w, l)
             return [end, side, end, side, top, top]
         }
         let outer = CGFloat(S.outer)
