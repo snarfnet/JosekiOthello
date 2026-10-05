@@ -119,14 +119,15 @@ final class Board3DScene {
         func wood(_ img: String, _ u: Float, _ v: Float) -> SCNMaterial {
             S.pbr(img, rough: 0.42, normal: "wood_normal.jpg", normalScale: 0.35, tiling: u / 0.12, tileY: v / 0.12, coat: 0.2, coatRough: 0.3)
         }
-        // x 方向に長い箱（w×h×l）。上面の u は x、v は z に沿うので、x に木目が通る横木目を (w, l) で貼る
+        // x 方向に長い箱（w×h×l）。SCNBox の上下面は画像の横が z、縦が x に沿う（実機撮影で確認）。
+        // なので x に木目を通すには縦木目の画像を (l, w) で貼る
         func woodX(_ w: Float, _ h: Float, _ l: Float) -> [SCNMaterial] {
-            let side = wood("walnut_h.jpg", w, h), end = wood("walnut.jpg", l, h), top = wood("walnut_h.jpg", w, l)
+            let side = wood("walnut_h.jpg", w, h), end = wood("walnut.jpg", l, h), top = wood("walnut.jpg", l, w)
             return [side, end, side, end, top, top]   // front, right, back, left, top, bottom
         }
-        // z 方向に長い箱。上面は z に木目が通る縦木目を (w, l) で貼る
+        // z 方向に長い箱。上面は横木目の画像を (l, w) で貼る
         func woodZ(_ w: Float, _ h: Float, _ l: Float) -> [SCNMaterial] {
-            let side = wood("walnut_h.jpg", l, h), end = wood("walnut.jpg", w, h), top = wood("walnut.jpg", w, l)
+            let side = wood("walnut_h.jpg", l, h), end = wood("walnut.jpg", w, h), top = wood("walnut_h.jpg", l, w)
             return [end, side, end, side, top, top]
         }
         let outer = CGFloat(S.outer)
