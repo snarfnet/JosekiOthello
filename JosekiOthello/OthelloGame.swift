@@ -60,7 +60,20 @@ class OthelloGame: ObservableObject {
         reset()
     }
 
+    // AI の読み専用の写し。読みの途中で盤を書き換えても、画面の盤（と 3D の駒）には触れない
+    private init(searchFrom g: OthelloGame) {
+        board = g.board
+        currentPlayer = g.currentPlayer
+        blackCount = g.blackCount
+        whiteCount = g.whiteCount
+        aiDifficulty = g.aiDifficulty
+    }
+
+    // 読み始めた局面の番号。対局のやり直し・戻るで進め、古い読みの結果を捨てる
+    private var aiToken = 0
+
     func reset() {
+        aiToken += 1
         board = Array(repeating: Array(repeating: .empty, count: 8), count: 8)
         board[3][3] = .white; board[3][4] = .black
         board[4][3] = .black; board[4][4] = .white
@@ -156,6 +169,7 @@ class OthelloGame: ObservableObject {
 
     func undo() {
         guard let move = moveHistory.last else { return }
+        aiToken += 1
         moveHistory.removeLast()
         moveNotations.removeLast()
 
@@ -250,11 +264,15 @@ class OthelloGame: ObservableObject {
             }
         } else {
             isAIThinking = true
+            aiToken += 1
+            let token = aiToken
+            let search = OthelloGame(searchFrom: self)
             DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-                guard let self = self else { return }
-                let move = self.bestAIMove()
+                let move = search.bestAIMove()
                 DispatchQueue.main.async {
+                    guard let self = self, self.aiToken == token else { return }
                     self.isAIThinking = false
+                    guard self.currentPlayer == .white && !self.isGameOver else { return }
                     if let (r, c) = move {
                         self.makeMove(row: r, col: c)
                     }

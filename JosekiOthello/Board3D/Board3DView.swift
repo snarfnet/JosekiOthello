@@ -24,6 +24,9 @@ struct Board3DView: UIViewRepresentable {
         v.preferredFramesPerSecond = 60
         v.isPlaying = true            // 動きの途中も描き続ける
         c.view = v
+        v.isAccessibilityElement = true
+        v.accessibilityIdentifier = "board3d"
+        v.accessibilityLabel = "盤"
         camera.coordinator = c
 
         let tap = UITapGestureRecognizer(target: c, action: #selector(Coordinator.tap(_:)))

@@ -42,7 +42,15 @@ jobs:
         }
         shoot 'iPhone 1[6-9] Pro Max' phone
         shoot 'iPad Pro 13|iPad Pro \(12' pad || shoot 'iPad' pad
+    - name: UI test (tap to play)
+      run: |
+        xcodegen generate --spec project_uitest.yml
+        UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys,re; d=json.load(sys.stdin)['devices']; print([x['udid'] for k,v in sorted(d.items(), reverse=True) if 'iOS' in k for x in v if re.search('iPhone 1[6-9] Pro Max', x['name'])][0])")
+        mkdir -p shots
+        set -o pipefail
+        TEST_RUNNER_SHOT_DIR=$PWD/shots xcodebuild test -project JosekiOthello.xcodeproj -scheme JosekiOthelloUITest           -destination "platform=iOS Simulator,id=$UDID" -derivedDataPath build-test           CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= 2>&1 | tee shots/uitest.log | grep -E "move [0-9]+:|error:|failed|passed|Test Case|XCTAssert" | head -80
     - uses: actions/upload-artifact@v4
+      if: always()
       with:
         name: shots
         path: shots

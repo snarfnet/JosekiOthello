@@ -1,0 +1,22 @@
+# シミュレーター撮影 CI 専用。審査提出の CI は project.yml だけを使うので、ここに足した UI テストは製品に入らない
+include: [project.yml]
+targets:
+  JosekiOthelloUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [JosekiOthelloUITests]
+    dependencies:
+      - target: JosekiOthello
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.tokyonasu.josekiothello.uitests
+        TEST_TARGET_NAME: JosekiOthello
+schemes:
+  JosekiOthelloUITest:
+    build:
+      targets:
+        JosekiOthello: all
+        JosekiOthelloUITests: [test]
+    test:
+      targets: [JosekiOthelloUITests]

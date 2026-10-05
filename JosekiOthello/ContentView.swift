@@ -54,6 +54,7 @@ struct ContentView: View {
                 Text("\(game.blackCount)")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
+                    .accessibilityIdentifier("blackCount")
             }
 
             Spacer()
@@ -66,6 +67,7 @@ struct ContentView: View {
                 Text("\(game.whiteCount)")
                     .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
+                    .accessibilityIdentifier("whiteCount")
                 Circle().fill(.white).frame(width: 20, height: 20)
                     .overlay(Circle().stroke(Color.gray, lineWidth: 1))
             }
