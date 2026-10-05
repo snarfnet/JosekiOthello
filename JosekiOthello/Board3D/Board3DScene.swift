@@ -119,15 +119,17 @@ final class Board3DScene {
         func wood(_ img: String, _ u: Float, _ v: Float) -> SCNMaterial {
             S.pbr(img, rough: 0.42, normal: "wood_normal.jpg", normalScale: 0.35, tiling: u / 0.12, tileY: v / 0.12, coat: 0.2, coatRough: 0.3)
         }
-        // x 方向に長い箱（w×h×l）。SCNBox の上下面は画像の横が z、縦が x に沿う（実機撮影で確認）。
-        // なので x に木目を通すには縦木目の画像を (l, w) で貼る
-        func woodX(_ w: Float, _ h: Float, _ l: Float) -> [SCNMaterial] {
-            let side = wood("walnut_h.jpg", w, h), end = wood("walnut.jpg", l, h), top = wood("walnut.jpg", l, w)
+        // 枠の上面は真上から一番目立つので、面の寸法どおりに切った専用画像（rim_x / rim_z）を繰り返さず 1 枚で貼る。
+        // SCNBox の上下面は画像の横が z、縦が x に沿う（実機撮影で確認）。凹凸画像は天井の光を波打たせるので使わない
+        func rimTop(_ img: String) -> SCNMaterial { S.pbr(img, rough: 0.55, coat: 0.15, coatRough: 0.35) }
+        // x 方向に長い箱（w×h×l）
+        func woodX(_ w: Float, _ h: Float, _ l: Float, top topMat: SCNMaterial? = nil) -> [SCNMaterial] {
+            let side = wood("walnut_h.jpg", w, h), end = wood("walnut.jpg", l, h), top = topMat ?? wood("walnut.jpg", l, w)
             return [side, end, side, end, top, top]   // front, right, back, left, top, bottom
         }
-        // z 方向に長い箱。上面は横木目の画像を (l, w) で貼る
-        func woodZ(_ w: Float, _ h: Float, _ l: Float) -> [SCNMaterial] {
-            let side = wood("walnut_h.jpg", l, h), end = wood("walnut.jpg", w, h), top = wood("walnut_h.jpg", l, w)
+        // z 方向に長い箱
+        func woodZ(_ w: Float, _ h: Float, _ l: Float, top topMat: SCNMaterial? = nil) -> [SCNMaterial] {
+            let side = wood("walnut_h.jpg", l, h), end = wood("walnut.jpg", w, h), top = topMat ?? wood("walnut_h.jpg", l, w)
             return [end, side, end, side, top, top]
         }
         let outer = CGFloat(S.outer)
@@ -148,7 +150,8 @@ final class Board3DScene {
             let horiz = i < 2; let s: Float = i % 2 == 0 ? -1 : 1
             let box = horiz ? SCNBox(width: outer, height: CGFloat(S.rimH), length: CGFloat(S.rimW), chamferRadius: 0.0025)
                             : SCNBox(width: CGFloat(S.rimW), height: CGFloat(S.rimH), length: CGFloat(S.fieldHalf * 2), chamferRadius: 0.0025)
-            box.materials = horiz ? woodX(S.outer, S.rimH, S.rimW) : woodZ(S.rimW, S.rimH, S.fieldHalf * 2)
+            box.materials = horiz ? woodX(S.outer, S.rimH, S.rimW, top: rimTop("rim_x.jpg"))
+                                  : woodZ(S.rimW, S.rimH, S.fieldHalf * 2, top: rimTop("rim_z.jpg"))
             let n = SCNNode(geometry: box)
             n.position = horiz ? SCNVector3(0, S.baseH + S.rimH * 0.5, rimC * s) : SCNVector3(rimC * s, S.baseH + S.rimH * 0.5, 0)
             board.addChildNode(n)
