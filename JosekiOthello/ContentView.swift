@@ -80,7 +80,7 @@ struct ContentView: View {
     var turnIndicator: some View {
         Group {
             if game.isGameOver {
-                let result = game.blackCount > game.whiteCount ? "あなたの勝ち!" :
+                let result: LocalizedStringKey = game.blackCount > game.whiteCount ? "あなたの勝ち!" :
                              game.blackCount < game.whiteCount ? "AIの勝ち" : "引き分け"
                 Text(result)
                     .font(.system(size: 15, weight: .bold, design: .rounded))
@@ -98,7 +98,7 @@ struct ContentView: View {
                         .fill(game.currentPlayer == .black ? Color.black : Color.white)
                         .frame(width: 14, height: 14)
                         .overlay(Circle().stroke(Color.gray, lineWidth: 1))
-                    Text(game.currentPlayer == .black ? "あなたの番" : "AIの番")
+                    Text(game.currentPlayer == .black ? LocalizedStringKey("あなたの番") : LocalizedStringKey("AIの番"))
                         .font(.system(size: 13, design: .rounded))
                         .foregroundColor(.gray)
                 }
@@ -147,7 +147,7 @@ struct ContentView: View {
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundColor(.accentGreen)
                 if !game.currentJosekiName.isEmpty {
-                    Text("- \(game.currentJosekiName)")
+                    Text(verbatim: "- " + josekiName(game.currentJosekiName))
                         .font(.system(size: 12, design: .rounded))
                         .foregroundColor(.gray)
                 }
@@ -216,7 +216,7 @@ struct ContentView: View {
             .frame(width: 56, height: 56)
             .clipShape(RoundedRectangle(cornerRadius: 4))
 
-            Text(displayName)
+            Text(verbatim: josekiName(displayName))
                 .font(.system(size: 10, weight: .bold, design: .rounded))
                 .foregroundColor(.white)
                 .lineLimit(1)
@@ -254,7 +254,7 @@ struct ContentView: View {
         .padding(.vertical, 8)
     }
 
-    var difficultyLabel: String {
+    var difficultyLabel: LocalizedStringKey {
         switch Int(game.aiDifficulty) {
         case 1: return "入門"
         case 2: return "初級"
@@ -292,6 +292,9 @@ struct ContentView: View {
         .tint(.accentGreen)
     }
 }
+
+// 定石名は内部の照合にも使うので、表示するときだけ訳す（en.lproj/Localizable.strings）
+func josekiName(_ name: String) -> String { NSLocalizedString(name, comment: "joseki name") }
 
 // MARK: - Mini Board View
 

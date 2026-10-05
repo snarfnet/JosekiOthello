@@ -8,7 +8,26 @@ final class BoardTapUITests: XCTestCase {
     override func setUp() {
         continueAfterFailure = false
         app = XCUIApplication()
+    }
+
+    private func launch(_ lang: String) {
+        app.launchArguments = ["-AppleLanguages", "(\(lang))", "-AppleLocale", lang == "ja" ? "ja_JP" : "en_US"]
         app.launch()
+    }
+
+    // 英語：文言が英語で出て、タップで打てる
+    func testEnglish() {
+        launch("en")
+        XCTAssertTrue(board.waitForExistence(timeout: 10), "盤が出ない")
+        XCTAssertTrue(app.staticTexts["Your turn"].exists, "英語の手番表示が出ない")
+        XCTAssertTrue(app.staticTexts["Opening mode"].exists)
+        XCTAssertTrue(app.buttons["New game"].exists)
+        tapCell(2, 3)
+        let ok = waitUntil(8) { self.total == 6 && self.app.staticTexts["Your turn"].exists }
+        if !ok { shot("x-en-tap") }
+        XCTAssertTrue(ok, "英語でタップして打てない。盤の診断: \(board.value as? String ?? "タップが届いていない") 盤の枠: \(board.frame)")
+        sleep(2)
+        shot("en-1")
     }
 
     private var board: XCUIElement { app.descendants(matching: .any)["board3d"] }
@@ -50,12 +69,15 @@ final class BoardTapUITests: XCTestCase {
     }
 
     func testPlayByTapping() {
+        launch("ja")
         XCTAssertTrue(board.waitForExistence(timeout: 10), "盤が出ない")
         XCTAssertEqual(count("blackCount"), 2); XCTAssertEqual(count("whiteCount"), 2)
 
         // 1 手目：d3（row 2, col 3）は初期局面で必ず打てる
         tapCell(2, 3)
-        XCTAssertTrue(waitUntil(3) { self.count("blackCount") == 4 && self.count("whiteCount") == 1 }, "d3 のタップで石が置けない")
+        let placed = waitUntil(3) { self.count("blackCount") == 4 && self.count("whiteCount") == 1 }
+        if !placed { shot("x-first-tap") }
+        XCTAssertTrue(placed, "d3 のタップで石が置けない。盤の診断: \(board.value as? String ?? "タップが届いていない") 盤の枠: \(board.frame)")
         XCTAssertTrue(waitUntil(8) { self.total == 6 && self.myTurn }, "AI（定石）が返さない")
         shot("1-after-first")
 

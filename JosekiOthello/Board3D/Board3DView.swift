@@ -26,7 +26,7 @@ struct Board3DView: UIViewRepresentable {
         c.view = v
         v.isAccessibilityElement = true
         v.accessibilityIdentifier = "board3d"
-        v.accessibilityLabel = "盤"
+        v.accessibilityLabel = NSLocalizedString("盤", comment: "board")
         camera.coordinator = c
 
         let tap = UITapGestureRecognizer(target: c, action: #selector(Coordinator.tap(_:)))
@@ -130,9 +130,15 @@ struct Board3DView: UIViewRepresentable {
 
         @objc func tap(_ g: UITapGestureRecognizer) {
             guard let v = view else { return }
-            guard game.currentPlayer == .black && !game.isAIThinking && !game.isGameOver && !board.animating else { return }
-            guard let cell = cellAt(g.location(in: v), in: v) else { return }
+            let pt = g.location(in: v)
+            // UI テストが読む診断（VoiceOver では読まれない accessibilityValue に入れる）
+            func note(_ s: String) { v.accessibilityValue = String(format: "tap %.0f,%.0f in %.0fx%.0f: ", pt.x, pt.y, v.bounds.width, v.bounds.height) + s }
+            guard game.currentPlayer == .black && !game.isAIThinking && !game.isGameOver && !board.animating else {
+                note("blocked player=\(game.currentPlayer.rawValue) ai=\(game.isAIThinking) over=\(game.isGameOver) anim=\(board.animating)"); return
+            }
+            guard let cell = cellAt(pt, in: v) else { note("off board"); return }
             let (row, col) = (cell / 8, cell % 8)
+            note("cell r\(row) c\(col) valid=\(game.validMoveSet.contains(cell))")
             if game.makeMove(row: row, col: col) {
                 if game.currentPlayer == .white && !game.isGameOver { game.scheduleAIMove() }
             }
