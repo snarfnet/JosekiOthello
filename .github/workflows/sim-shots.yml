@@ -1,0 +1,48 @@
+name: Simulator screenshots (board3d)
+
+on:
+  push:
+    branches: [board3d]
+  workflow_dispatch:
+
+jobs:
+  shots:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Select Xcode
+      run: |
+        XCODE_APP=$(ls /Applications/ | grep -E "^Xcode_[0-9]" | sort -V | tail -1)
+        sudo xcode-select -s "/Applications/$XCODE_APP"; xcodebuild -version
+    - run: brew install xcodegen && xcodegen generate
+    - name: Build for simulator
+      run: |
+        xcodebuild build -scheme JosekiOthello -sdk iphonesimulator -configuration Debug \
+          -derivedDataPath build CODE_SIGNING_ALLOWED=NO 2>&1 | tail -40
+        test -d build/Build/Products/Debug-iphonesimulator/JosekiOthello.app
+    - name: Shoot
+      run: |
+        APP=build/Build/Products/Debug-iphonesimulator/JosekiOthello.app
+        mkdir -p shots
+        shoot() {   # $1 = device name pattern, $2 = prefix
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys,re; d=json.load(sys.stdin)['devices']; print([x['udid'] for k,v in sorted(d.items(), reverse=True) if 'iOS' in k for x in v if re.search('$1', x['name'])][0])")
+          echo "$2 -> $UDID"
+          xcrun simctl boot $UDID; xcrun simctl bootstatus $UDID -b
+          xcrun simctl install $UDID $APP
+          xcrun simctl launch $UDID com.tokyonasu.josekiothello; sleep 6
+          xcrun simctl io $UDID screenshot shots/$2-1-top.png
+          xcrun simctl terminate $UDID com.tokyonasu.josekiothello
+          xcrun simctl launch $UDID com.tokyonasu.josekiothello -demo; sleep 4.3
+          for i in 1 2 3 4; do xcrun simctl io $UDID screenshot shots/$2-2-anim$i.png; done
+          sleep 5; xcrun simctl io $UDID screenshot shots/$2-3-demo.png
+          xcrun simctl terminate $UDID com.tokyonasu.josekiothello
+          xcrun simctl launch $UDID com.tokyonasu.josekiothello -demo -tilt; sleep 11
+          xcrun simctl io $UDID screenshot shots/$2-4-tilt.png
+          xcrun simctl shutdown $UDID
+        }
+        shoot 'iPhone 1[6-9] Pro Max' phone
+        shoot 'iPad Pro 13|iPad Pro \(12' pad || shoot 'iPad' pad
+    - uses: actions/upload-artifact@v4
+      with:
+        name: shots
+        path: shots

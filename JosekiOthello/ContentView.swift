@@ -15,6 +15,7 @@ extension Color {
 
 struct ContentView: View {
     @StateObject private var game = OthelloGame()
+    @StateObject private var camera = BoardCamera()
 
     var body: some View {
         ZStack {
@@ -29,6 +30,18 @@ struct ContentView: View {
             }
         }
         .preferredColorScheme(.dark)
+        .onAppear(perform: runDemoIfRequested)
+    }
+
+    // スクショ用：-demo で定石を数手自動で進める
+    private func runDemoIfRequested() {
+        guard ProcessInfo.processInfo.arguments.contains("-demo") else { return }
+        for t in [1.5, 4.0, 6.5] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + t) {
+                guard game.currentPlayer == .black, let b = game.availableJosekiBranches.first else { return }
+                game.playJosekiMove(notation: b.notation)
+            }
+        }
     }
 
     // MARK: - Header
@@ -96,8 +109,23 @@ struct ContentView: View {
     var boardSection: some View {
         GeometryReader { geo in
             let boardSize = min(geo.size.width - 16, geo.size.height)
-            BoardView(game: game, size: boardSize)
+            Board3DView(game: game, camera: camera)
                 .frame(width: boardSize, height: boardSize)
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .overlay(alignment: .topTrailing) {
+                    if !camera.isTopDown {
+                        Button { camera.resetToTop() } label: {
+                            Label("真上", systemImage: "arrow.down.to.line.compact")
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .padding(.horizontal, 10).padding(.vertical, 6)
+                                .background(.ultraThinMaterial, in: Capsule())
+                        }
+                        .tint(.white)
+                        .padding(8)
+                        .transition(.opacity)
+                    }
+                }
+                .animation(.easeOut(duration: 0.2), value: camera.isTopDown)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .aspectRatio(1, contentMode: .fit)
@@ -260,94 +288,6 @@ struct ContentView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
         .tint(.accentGreen)
-    }
-}
-
-// MARK: - Board View
-
-struct BoardView: View {
-    @ObservedObject var game: OthelloGame
-    let size: CGFloat
-
-    var cellSize: CGFloat { size / 8 }
-
-    var body: some View {
-        Canvas { context, canvasSize in
-            let cs = canvasSize.width / 8
-
-            // Board background
-            context.fill(
-                Path(CGRect(origin: .zero, size: canvasSize)),
-                with: .color(.boardGreen)
-            )
-
-            // Grid lines
-            for i in 0...8 {
-                let pos = CGFloat(i) * cs
-                var hLine = Path(); hLine.move(to: CGPoint(x: 0, y: pos)); hLine.addLine(to: CGPoint(x: canvasSize.width, y: pos))
-                var vLine = Path(); vLine.move(to: CGPoint(x: pos, y: 0)); vLine.addLine(to: CGPoint(x: pos, y: canvasSize.height))
-                context.stroke(hLine, with: .color(.boardLine), lineWidth: 1)
-                context.stroke(vLine, with: .color(.boardLine), lineWidth: 1)
-            }
-
-            // Star points
-            for (r, c) in [(2,2),(2,6),(6,2),(6,6)] {
-                let center = CGPoint(x: CGFloat(c) * cs + cs / 2, y: CGFloat(r) * cs + cs / 2)
-                context.fill(Path(ellipseIn: CGRect(x: center.x - 3, y: center.y - 3, width: 6, height: 6)), with: .color(.boardLine))
-            }
-
-            // Pieces
-            for r in 0..<8 {
-                for c in 0..<8 {
-                    let center = CGPoint(x: CGFloat(c) * cs + cs / 2, y: CGFloat(r) * cs + cs / 2)
-                    let pieceSize = cs * 0.82
-
-                    if game.board[r][c] != .empty {
-                        let isBlack = game.board[r][c] == .black
-                        let rect = CGRect(x: center.x - pieceSize / 2, y: center.y - pieceSize / 2, width: pieceSize, height: pieceSize)
-
-                        // Shadow
-                        let shadowRect = rect.offsetBy(dx: 1, dy: 2)
-                        context.fill(Path(ellipseIn: shadowRect), with: .color(.black.opacity(0.3)))
-
-                        // Piece
-                        context.fill(Path(ellipseIn: rect), with: .color(isBlack ? Color(red: 0.1, green: 0.1, blue: 0.1) : Color(red: 0.95, green: 0.95, blue: 0.95)))
-
-                        // Inner highlight
-                        let hlSize = pieceSize * 0.5
-                        let hlRect = CGRect(x: center.x - hlSize / 2 - 2, y: center.y - hlSize / 2 - 2, width: hlSize, height: hlSize)
-                        context.fill(Path(ellipseIn: hlRect), with: .color(isBlack ? Color.white.opacity(0.08) : Color.white.opacity(0.3)))
-
-                        // Last move indicator
-                        if let last = game.lastMove, last.0 == r && last.1 == c {
-                            let dotSize: CGFloat = 6
-                            let dotRect = CGRect(x: center.x - dotSize / 2, y: center.y - dotSize / 2, width: dotSize, height: dotSize)
-                            context.fill(Path(ellipseIn: dotRect), with: .color(.lastMoveHighlight))
-                        }
-                    }
-
-                    // Valid move indicator
-                    if game.validMoveSet.contains(r * 8 + c) && game.currentPlayer == .black && !game.isAIThinking {
-                        let dotSize = cs * 0.25
-                        let dotRect = CGRect(x: center.x - dotSize / 2, y: center.y - dotSize / 2, width: dotSize, height: dotSize)
-                        context.fill(Path(ellipseIn: dotRect), with: .color(.accentGreen.opacity(0.5)))
-                    }
-                }
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { location in
-            guard game.currentPlayer == .black && !game.isAIThinking && !game.isGameOver else { return }
-            let col = Int(location.x / cellSize)
-            let row = Int(location.y / cellSize)
-            guard row >= 0 && row < 8 && col >= 0 && col < 8 else { return }
-
-            if game.makeMove(row: row, col: col) {
-                if game.currentPlayer == .white && !game.isGameOver {
-                    game.scheduleAIMove()
-                }
-            }
-        }
     }
 }
 
