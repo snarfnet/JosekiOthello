@@ -39,7 +39,7 @@ final class Board3DScene {
         return UIImage(contentsOfFile: url.path)
     }
 
-    private static func pbr(_ albedo: String?, tint: UIColor = .white, rough: Float, normal: String? = nil, normalScale: CGFloat = 1, tiling: Float = 1, roughMap: String? = nil, coat: CGFloat = 0, coatRough: CGFloat = 0.05) -> SCNMaterial {
+    private static func pbr(_ albedo: String?, tint: UIColor = .white, rough: Float, normal: String? = nil, normalScale: CGFloat = 1, tiling: Float = 1, tileY: Float? = nil, roughMap: String? = nil, coat: CGFloat = 0, coatRough: CGFloat = 0.05) -> SCNMaterial {
         let m = SCNMaterial()
         m.lightingModel = .physicallyBased
         // 色味はテクスチャに焼き込み済み（multiply は光を当てた後にかかるので使わない）
@@ -47,8 +47,8 @@ final class Board3DScene {
         m.metalness.contents = 0.0
         if let r = roughMap, let img = image(r) { m.roughness.contents = img } else { m.roughness.contents = NSNumber(value: rough) }
         if let n = normal, let img = image(n) { m.normal.contents = img; m.normal.intensity = normalScale }
-        if tiling != 1 {
-            let t = SCNMatrix4MakeScale(tiling, tiling, 1)
+        if tiling != 1 || tileY != nil {
+            let t = SCNMatrix4MakeScale(tiling, tileY ?? tiling, 1)
             for p in [m.diffuse, m.normal, m.roughness] { p.contentsTransform = t; p.wrapS = .repeat; p.wrapT = .repeat }
         }
         for p in [m.diffuse, m.normal, m.roughness] { p.mipFilter = .linear; p.maxAnisotropy = 8 }
@@ -79,7 +79,7 @@ final class Board3DScene {
         // 斜め上からの主光。駒の影を短く落とす
         let key = SCNLight()
         key.type = .directional
-        key.intensity = 650
+        key.intensity = 1100
         key.color = UIColor(red: 1, green: 0.97, blue: 0.92, alpha: 1)
         key.castsShadow = true
         key.shadowMode = .forward
@@ -100,11 +100,11 @@ final class Board3DScene {
         let size = CGSize(width: 512, height: 256)
         return UIGraphicsImageRenderer(size: size).image { ctx in
             let cg = ctx.cgContext
-            let colors = [UIColor(white: 0.95, alpha: 1).cgColor, UIColor(red: 0.62, green: 0.6, blue: 0.56, alpha: 1).cgColor, UIColor(red: 0.18, green: 0.16, blue: 0.14, alpha: 1).cgColor] as CFArray
+            let colors = [UIColor(white: 0.32, alpha: 1).cgColor, UIColor(red: 0.42, green: 0.4, blue: 0.37, alpha: 1).cgColor, UIColor(red: 0.1, green: 0.09, blue: 0.08, alpha: 1).cgColor] as CFArray
             let grad = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.5, 1])!
             cg.drawLinearGradient(grad, start: .zero, end: CGPoint(x: 0, y: size.height), options: [])
             cg.setFillColor(UIColor(white: 1, alpha: 1).cgColor)
-            for i in 0..<4 { cg.fill(CGRect(x: 40 + CGFloat(i) * 128, y: 22, width: 70, height: 9)) }   // 蛍光灯
+            for i in 0..<4 { cg.fill(CGRect(x: 30 + CGFloat(i) * 128, y: 14, width: 80, height: 12)) }  // 蛍光灯
             cg.setFillColor(UIColor(red: 0.85, green: 0.92, blue: 1, alpha: 1).cgColor)
             cg.fill(CGRect(x: 0, y: 70, width: 60, height: 50))                                     // 窓
         }
@@ -115,17 +115,20 @@ final class Board3DScene {
     private func buildBoard() {
         let S = Board3DScene.self
         let board = SCNNode(); scene.rootNode.addChildNode(board)
-        let walnut = S.pbr("walnut.jpg", rough: 0.42, normal: "wood_normal.jpg", normalScale: 0.35, tiling: 2.2, coat: 0.35, coatRough: 0.2)
+        // 胡桃：木目は 12cm で一巡。横の枠は 90° 回した画像で、木目を長手方向に通す
+        func walnut(_ horiz: Bool, _ w: Float, _ l: Float) -> SCNMaterial {
+            S.pbr(horiz ? "walnut_h.jpg" : "walnut.jpg", rough: 0.42, normal: "wood_normal.jpg", normalScale: 0.35, tiling: w / 0.12, tileY: l / 0.12, coat: 0.35, coatRough: 0.2)
+        }
         let outer = CGFloat(S.outer)
         let base = SCNBox(width: outer, height: CGFloat(S.baseH), length: outer, chamferRadius: 0.0025)
-        base.materials = [walnut]
+        base.materials = [walnut(false, S.outer, S.outer)]
         let baseNode = SCNNode(geometry: base); baseNode.position = SCNVector3(0, S.baseH * 0.5 - 0.0012, 0)
         board.addChildNode(baseNode)
 
         // 盤の下の柔らかい接地影
         for (k, a) in [(1.12, 0.55), (1.3, 0.35)] {
             let q = SCNPlane(width: outer * CGFloat(k), height: outer * CGFloat(k)); q.materials = [S.unlitAlpha(UIColor(white: 0, alpha: CGFloat(a)))]
-            let n = SCNNode(geometry: q); n.eulerAngles.x = -.pi / 2; n.position = SCNVector3(0, 0.0003, 0); n.renderingOrder = -10; n.castsShadow = false
+            let n = SCNNode(geometry: q); n.eulerAngles.x = -.pi / 2; n.position = SCNVector3(0, 0.0003, 0); n.renderingOrder = 10; n.castsShadow = false
             board.addChildNode(n)
         }
 
@@ -134,7 +137,7 @@ final class Board3DScene {
             let horiz = i < 2; let s: Float = i % 2 == 0 ? -1 : 1
             let box = horiz ? SCNBox(width: outer, height: CGFloat(S.rimH), length: CGFloat(S.rimW), chamferRadius: 0.0025)
                             : SCNBox(width: CGFloat(S.rimW), height: CGFloat(S.rimH), length: CGFloat(S.fieldHalf * 2), chamferRadius: 0.0025)
-            box.materials = [walnut]
+            box.materials = [horiz ? walnut(true, S.outer, S.rimW) : walnut(false, S.rimW, S.fieldHalf * 2)]
             let n = SCNNode(geometry: box)
             n.position = horiz ? SCNVector3(0, S.baseH + S.rimH * 0.5, rimC * s) : SCNVector3(rimC * s, S.baseH + S.rimH * 0.5, 0)
             board.addChildNode(n)
@@ -185,7 +188,7 @@ final class Board3DScene {
         for i in 0..<64 {
             let n = SCNNode(geometry: geo); n.castsShadow = true; n.isHidden = true
             root.addChildNode(n); discs.append(n)
-            let a = SCNNode(geometry: aoGeo); a.eulerAngles.x = -.pi / 2; a.renderingOrder = -5; a.castsShadow = false
+            let a = SCNNode(geometry: aoGeo); a.eulerAngles.x = -.pi / 2; a.renderingOrder = 11; a.castsShadow = false
             a.simdPosition = cellPos(i % 8, i / 8) - SIMD3(0, S.discH * 0.5 - 0.0003, 0); a.isHidden = true
             root.addChildNode(a); aos.append(a)
         }
@@ -263,7 +266,7 @@ final class Board3DScene {
             let isJ = joseki.contains(c)
             let q = SCNPlane(width: CGFloat(S.discR * (isJ ? 1.9 : 1.5)), height: CGFloat(S.discR * (isJ ? 1.9 : 1.5)))
             q.materials = [S.unlitAlpha(isJ ? UIColor(red: 1, green: 0.62, blue: 0.25, alpha: 0.7) : UIColor(red: 1, green: 1, blue: 0.9, alpha: 0.3))]
-            let n = SCNNode(geometry: q); n.eulerAngles.x = -.pi / 2; n.renderingOrder = -4; n.castsShadow = false
+            let n = SCNNode(geometry: q); n.eulerAngles.x = -.pi / 2; n.renderingOrder = 12; n.castsShadow = false
             n.simdPosition = cellPos(c % 8, c / 8) - SIMD3(0, S.discH * 0.5 - 0.0004, 0)
             root.addChildNode(n); hintNodes.append(n)
         }
@@ -352,7 +355,7 @@ final class Board3DScene {
         let S = Board3DScene.self
         let q = SCNPlane(width: CGFloat(S.discR * 2), height: CGFloat(S.discR * 2))
         q.materials = [S.unlitAlpha(UIColor(red: 1, green: 0.95, blue: 0.8, alpha: 0.5))]
-        let n = SCNNode(geometry: q); n.eulerAngles.x = -.pi / 2; n.renderingOrder = -3; n.castsShadow = false
+        let n = SCNNode(geometry: q); n.eulerAngles.x = -.pi / 2; n.renderingOrder = 13; n.castsShadow = false
         n.simdPosition = cellPos(i % 8, i / 8) - SIMD3(0, S.discH * 0.5 - 0.0008, 0)
         root.addChildNode(n)
         let dur = 0.45
