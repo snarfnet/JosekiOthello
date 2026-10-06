@@ -73,12 +73,12 @@ final class BoardTapUITests: XCTestCase {
         XCTAssertTrue(board.waitForExistence(timeout: 10), "盤が出ない")
         XCTAssertEqual(count("blackCount"), 2); XCTAssertEqual(count("whiteCount"), 2)
 
-        // 1 手目：d3（row 2, col 3）は初期局面で必ず打てる
-        tapCell(2, 3)
-        let placed = waitUntil(3) { self.count("blackCount") == 4 && self.count("whiteCount") == 1 }
+        // 1 手目：f5（row 4, col 5）。定石の入口で、AI は定石どおりに返す
+        tapCell(4, 5)
+        let placed = waitUntil(8) { self.total == 6 && self.myTurn }
         if !placed { shot("x-first-tap") }
-        XCTAssertTrue(placed, "d3 のタップで石が置けない。盤の診断: \(board.value as? String ?? "タップが届いていない") 盤の枠: \(board.frame)")
-        XCTAssertTrue(waitUntil(8) { self.total == 6 && self.myTurn }, "AI（定石）が返さない")
+        XCTAssertTrue(placed, "f5 のタップのあと AI が返して自分の番にならない。盤の診断: \(board.value as? String ?? "タップが届いていない") 盤の枠: \(board.frame)")
+        XCTAssertTrue(app.staticTexts["定石モード"].exists, "f5 → 定石の返しで定石モードのまま")
         shot("1-after-first")
 
         // 戻る：2 手ぶん戻って初期局面
