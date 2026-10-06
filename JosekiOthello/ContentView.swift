@@ -35,6 +35,20 @@ struct ContentView: View {
 
     // スクショ用：-demo で定石を数手自動で進める
     private func runDemoIfRequested() {
+        // -demoai：定石を最後まで進め、そのまま AI 対戦の中盤まで自動で打つ（ストア用スクショ）
+        if ProcessInfo.processInfo.arguments.contains("-demoai") {
+            for i in 0..<12 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0 + Double(i) * 1.6) {
+                    guard game.currentPlayer == .black, !game.isGameOver, !game.isAIThinking else { return }
+                    if game.isInJoseki, let b = game.availableJosekiBranches.first {
+                        game.playJosekiMove(notation: b.notation)
+                    } else if let m = game.validMoveSet.sorted().first {
+                        if game.makeMove(row: m / 8, col: m % 8), game.currentPlayer == .white { game.scheduleAIMove() }
+                    }
+                }
+            }
+            return
+        }
         guard ProcessInfo.processInfo.arguments.contains("-demo") else { return }
         for t in [1.5, 4.0, 6.5] {
             DispatchQueue.main.asyncAfter(deadline: .now() + t) {

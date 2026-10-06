@@ -42,6 +42,27 @@ jobs:
         }
         shoot 'iPhone 1[6-9] Pro Max' phone
         shoot 'iPad Pro 13|iPad Pro \(12' pad || shoot 'iPad' pad
+    - name: Store screenshots (ja / en)
+      run: |
+        APP=build/Build/Products/Debug-iphonesimulator/JosekiOthello.app
+        store() {   # $1 = device pattern, $2 = prefix
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys,re; d=json.load(sys.stdin)['devices']; print([x['udid'] for k,v in sorted(d.items(), reverse=True) if 'iOS' in k for x in v if re.search('$1', x['name'])][0])")
+          xcrun simctl boot $UDID; xcrun simctl bootstatus $UDID -b
+          xcrun simctl status_bar $UDID override --time "9:41" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4
+          xcrun simctl install $UDID $APP
+          for L in ja en; do
+            mkdir -p store/$L
+            LOC=$([ $L = ja ] && echo ja_JP || echo en_US)
+            run() { xcrun simctl launch $UDID com.tokyonasu.josekiothello -AppleLanguages "($L)" -AppleLocale $LOC "$@"; }
+            run -demo; sleep 12; xcrun simctl io $UDID screenshot store/$L/$2-1-joseki.png; xcrun simctl terminate $UDID com.tokyonasu.josekiothello
+            run -demo -tilt; sleep 12; xcrun simctl io $UDID screenshot store/$L/$2-2-tilt.png; xcrun simctl terminate $UDID com.tokyonasu.josekiothello
+            run -demoai; sleep 26; xcrun simctl io $UDID screenshot store/$L/$2-3-ai.png; xcrun simctl terminate $UDID com.tokyonasu.josekiothello
+          done
+          xcrun simctl shutdown $UDID
+        }
+        store 'iPhone 1[6-9] Pro Max' phone
+        store 'iPad Pro 13|iPad Pro \(12' pad || store 'iPad' pad
+        cp -r store shots/store
     - name: UI test (tap to play)
       run: |
         xcodegen generate --spec project_uitest.yml

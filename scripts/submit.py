@@ -17,8 +17,13 @@ def headers():
     return {'Authorization': f'Bearer {make_token()}', 'Content-Type': 'application/json'}
 
 def api(method, path, **kwargs):
-    r = requests.request(method, f'https://api.appstoreconnect.apple.com/v1{path}',
-        headers=headers(), **kwargs)
+    # このキーは書き込みが断続的に 401 を返すので数回やり直す
+    for _ in range(8):
+        r = requests.request(method, f'https://api.appstoreconnect.apple.com/v1{path}',
+            headers=headers(), **kwargs)
+        if r.status_code != 401:
+            return r
+        time.sleep(4)
     return r
 
 print(f'Waiting for build {BUILD_NUMBER} to be processed...')
@@ -41,25 +46,27 @@ r = api('PATCH', f'/builds/{build_id}',
     json={'data': {'type': 'builds', 'id': build_id, 'attributes': {'usesNonExemptEncryption': False}}})
 print(f'Export compliance: {r.status_code}')
 
+VERSION = '1.2'
+EDITABLE = ('PREPARE_FOR_SUBMISSION', 'DEVELOPER_REJECTED', 'REJECTED', 'METADATA_REJECTED', 'INVALID_BINARY')
 version_id = None
 version_state = None
-r = api('GET', f'/apps/{APP_ID}/appStoreVersions?filter[platform]=IOS&limit=1')
-data = r.json()
-if data.get('data'):
-    version_id = data['data'][0]['id']
-    version_state = data['data'][0]['attributes']['appStoreState']
-    print(f'Found version: {version_id} state={version_state}')
+# 販売中の版ではなく、まだ出していない版（編集できる状態）を探す
+r = api('GET', f'/apps/{APP_ID}/appStoreVersions?filter[platform]=IOS&limit=20')
+for v in r.json().get('data', []):
+    st = v['attributes']['appStoreState']
+    print(f"Version {v['attributes']['versionString']}: {v['id']} state={st}")
+    if st in ('WAITING_FOR_REVIEW', 'IN_REVIEW'):
+        print(f'Already in review ({st}). Nothing to do.')
+        sys.exit(0)
+    if st in EDITABLE and not version_id:
+        version_id, version_state = v['id'], st
 
-if version_state in ('WAITING_FOR_REVIEW', 'IN_REVIEW'):
-    print(f'Already in review ({version_state}). Nothing to do.')
-    sys.exit(0)
-
-if not version_id or version_state in ('READY_FOR_DISTRIBUTION',):
+if not version_id:
     print('Creating new version...')
     r = api('POST', '/appStoreVersions', json={
         'data': {
             'type': 'appStoreVersions',
-            'attributes': {'platform': 'IOS', 'versionString': '1.1'},
+            'attributes': {'platform': 'IOS', 'versionString': VERSION},
             'relationships': {'app': {'data': {'type': 'apps', 'id': APP_ID}}}
         }
     })
@@ -72,7 +79,7 @@ if not version_id or version_state in ('READY_FOR_DISTRIBUTION',):
 print(f'Version ID: {version_id} state={version_state}')
 
 # Set App Review Notes
-review_notes = """1. Screen recording: The app launches directly to the Othello (Reversi) game board. The user plays as black against an AI opponent. Tap any valid move (highlighted cells) to place a piece. The app displays joseki (opening theory) names and descriptions as the game follows known patterns. Users can undo moves, adjust AI difficulty, and start new games.
+review_notes = """1. Screen recording: The app launches directly to the Othello (Reversi) game board. The board is rendered in 3D and starts in a top-down view; drag to tilt, pinch to zoom, and tap "Top view" to return. The user plays as black against an AI opponent. Tap any valid move (highlighted cells) to place a piece. The app displays joseki (opening theory) names and descriptions as the game follows known patterns. Users can undo moves, adjust AI difficulty, and start new games.
 
 2. Tested on: iPhone 15 Pro (iOS 18.4), iPhone 16 Pro Max (iOS 18.4), iPhone SE 3rd gen (iOS 18.4), iPad Pro 11-inch (iPadOS 18.4)
 
@@ -82,7 +89,7 @@ review_notes = """1. Screen recording: The app launches directly to the Othello 
 
 5. External services: None. The AI opponent and joseki database are entirely on-device. This is a paid app with no advertisements and no network access.
 
-6. Regional differences: None. The app functions consistently across all regions. UI is in Japanese. The game of Othello/Reversi is universal.
+6. Regional differences: None. The app functions consistently across all regions. UI is in Japanese and English (follows the device language). The game of Othello/Reversi is universal.
 
 7. Not applicable. Othello/Reversi is a public domain board game. The app does not operate in a regulated industry and does not include protected third-party material."""
 
@@ -126,12 +133,9 @@ for state_filter in ['UNRESOLVED_ISSUES', 'READY_FOR_REVIEW']:
 if canceled_any:
     print('Waiting 30s for cancellations to propagate...')
     time.sleep(30)
-    r = api('GET', f'/apps/{APP_ID}/appStoreVersions?filter[platform]=IOS&limit=1')
-    data = r.json()
-    if data.get('data'):
-        version_id = data['data'][0]['id']
-        version_state = data['data'][0]['attributes']['appStoreState']
-        print(f'Version after cancel: {version_id} state={version_state}')
+    r = api('GET', f'/appStoreVersions/{version_id}')
+    version_state = r.json()['data']['attributes']['appStoreState']
+    print(f'Version after cancel: {version_id} state={version_state}')
     r = api('PATCH', f'/appStoreVersions/{version_id}/relationships/build',
         json={'data': {'type': 'builds', 'id': build_id}})
     print(f'Build re-assigned: {r.status_code}')
@@ -154,7 +158,7 @@ for attempt in range(5):
 
 if not submission_id:
     print('Could not create reviewSubmission after 5 attempts.')
-    sys.exit(0)
+    sys.exit(1)
 
 item_added = False
 for attempt in range(5):
@@ -175,8 +179,8 @@ for attempt in range(5):
         time.sleep(15)
 
 if not item_added:
-    print(f'Failed to add item: {r.text[:300]}')
-    sys.exit(0)
+    print(f'Failed to add item: {r.text[:1500]}')
+    sys.exit(1)
 
 r = api('PATCH', f'/reviewSubmissions/{submission_id}', json={
     'data': {
@@ -190,3 +194,4 @@ if r.status_code == 200:
     print(f'Submitted! State: {state}')
 else:
     print(f'Submit failed: {r.status_code} {r.text[:300]}')
+    sys.exit(1)
