@@ -42,21 +42,8 @@ jobs:
         echo "Info.plist after patch:"
         grep -A1 CFBundleVersion JosekiOthello/Info.plist
 
-    - name: Import Distribution Certificate
-      env:
-        CERT_BASE64: ${{ secrets.DIST_CERT_BASE64 }}
-        CERT_PASSWORD: ${{ secrets.DIST_CERT_PASSWORD }}
-        KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-      run: |
-        security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-        security default-keychain -s build.keychain
-        security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
-        security set-keychain-settings -t 3600 -u build.keychain
-        echo "$CERT_BASE64" | base64 -D > cert.p12
-        security import cert.p12 -k build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
-        security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
-        rm cert.p12
-
+    # 配布証明書は手で取り込まず、ASC API キーの自動署名（クラウド管理の配布証明書）に任せる。
+    # 取り込み式だった DIST_CERT_BASE64 は失効して export が "Signing certificate is invalid" で落ちた（2026-10-06）
     - name: Set up ASC API Key
       env:
         ASC_API_KEY_CONTENT: ${{ secrets.ASC_API_KEY_CONTENT }}
